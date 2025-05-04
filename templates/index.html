@@ -76,8 +76,14 @@
         // Initialize marker
         let marker = null;
 
-        // Connect to WebSocket
-        const socket = io();
+        // Connect to WebSocket with reconnection settings
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
 
         // Location sharing variables
         let watchId = null;
@@ -107,6 +113,23 @@
 
         // Set initial state
         updateSharingUI(false);
+
+        // Handle connection events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            statusDiv.textContent = "Connected to server";
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            statusDiv.textContent = "Disconnected from server";
+            updateSharingUI(false);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            statusDiv.textContent = "Connection error. Retrying...";
+        });
 
         // Handle location updates from server
         socket.on('location_updated', (data) => {
@@ -138,6 +161,11 @@
                     (error) => {
                         console.error("Error getting location:", error);
                         statusDiv.textContent = "Error getting location";
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
                     }
                 );
                 socket.emit('sharing_started');

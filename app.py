@@ -10,6 +10,9 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+
 # Configure Socket.IO for production
 socketio = SocketIO(app, 
                    cors_allowed_origins="*",
@@ -18,7 +21,8 @@ socketio = SocketIO(app,
                    engineio_logger=True,
                    ping_timeout=60,
                    ping_interval=25,
-                   max_http_buffer_size=1e8)
+                   max_http_buffer_size=1e8,
+                   manage_session=False)  # Let Flask handle sessions
 
 # Store the latest location and sharing state
 latest_location = None
@@ -47,6 +51,7 @@ def login():
         if username in USERS and USERS[username] == password:
             session['authenticated'] = True
             session['username'] = username
+            session.permanent = True  # Make session persistent
             return redirect(url_for('index'))
         return render_template('login.html', error='Invalid credentials')
     
@@ -67,6 +72,8 @@ def index():
 
 @socketio.on('update_location')
 def handle_location_update(data):
+    if not session.get('authenticated'):  # Check authentication
+        return
     global latest_location
     if not is_sharing:  # Only update location if sharing is active
         return
@@ -76,17 +83,23 @@ def handle_location_update(data):
 
 @socketio.on('sharing_started')
 def handle_sharing_started():
+    if not session.get('authenticated'):  # Check authentication
+        return
     global is_sharing
     is_sharing = True
     emit('sharing_state_changed', {'is_sharing': True}, broadcast=True)
 
 @socketio.on('sharing_stopped')
 def handle_sharing_stopped():
+    if not session.get('authenticated'):  # Check authentication
+        return
     reset_sharing_state()
     emit('sharing_state_changed', {'is_sharing': False}, broadcast=True)
 
 @socketio.on('connect')
 def handle_connect():
+    if not session.get('authenticated'):  # Check authentication
+        return False  # Reject connection if not authenticated
     # Send the latest location and sharing state to newly connected clients
     if latest_location and is_sharing:  # Only send location if sharing is active
         emit('location_updated', latest_location)
