@@ -10,7 +10,12 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
-socketio = SocketIO(app, cors_allowed_origins="*")  # Allow CORS for production
+# Configure Socket.IO for production
+socketio = SocketIO(app, 
+                   cors_allowed_origins="*",
+                   async_mode='eventlet',
+                   logger=True,
+                   engineio_logger=True)
 
 # Store the latest location and sharing state
 latest_location = None
