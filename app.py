@@ -10,7 +10,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")  # Allow CORS for production
 
 # Store the latest location and sharing state
 latest_location = None
@@ -85,4 +85,6 @@ def handle_connect():
     emit('sharing_state_changed', {'is_sharing': is_sharing})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5001) 
+    # Use environment variable for port in production
+    port = int(os.getenv('PORT', 5001))
+    socketio.run(app, debug=False, host='0.0.0.0', port=port) 
