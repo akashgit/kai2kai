@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Location Share</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            margin: 0 5px;
+        }
+        #startSharing {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #stopSharing {
+            background-color: #f44336;
+            color: white;
+        }
+        #logout {
+            background-color: #666;
+            color: white;
+            float: right;
+        }
+        .status {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>Location Share</h2>
+        <a href="/logout"><button id="logout">Logout</button></a>
+    </div>
+    <div class="controls">
+        <button id="startSharing">Start Sharing Location</button>
+        <button id="stopSharing" style="display: none;">Stop Sharing Location</button>
+        <div class="status" id="status">Location sharing is not active</div>
+    </div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Initialize marker
+        let marker = null;
+
+        // Connect to WebSocket
+        const socket = io();
+
+        // Location sharing variables
+        let watchId = null;
+        const startButton = document.getElementById('startSharing');
+        const stopButton = document.getElementById('stopSharing');
+        const statusDiv = document.getElementById('status');
+
+        // Function to update UI based on sharing state
+        function updateSharingUI(isSharing) {
+            startButton.style.display = isSharing ? 'none' : 'inline-block';
+            stopButton.style.display = isSharing ? 'inline-block' : 'none';
+            statusDiv.textContent = isSharing ? "Location sharing is active" : "Location sharing is not active";
+        }
+
+        // Handle location updates from server
+        socket.on('location_updated', (data) => {
+            const { lat, lng } = data;
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+            map.setView([lat, lng], 15);
+        });
+
+        // Handle sharing state changes
+        socket.on('sharing_state_changed', (data) => {
+            updateSharingUI(data.is_sharing);
+        });
+
+        // Start sharing location
+        startButton.addEventListener('click', () => {
+            if ("geolocation" in navigator) {
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        socket.emit('update_location', {
+                            lat: latitude,
+                            lng: longitude
+                        });
+                    },
+                    (error) => {
+                        console.error("Error getting location:", error);
+                        statusDiv.textContent = "Error getting location";
+                    }
+                );
+                socket.emit('sharing_started');
+            } else {
+                statusDiv.textContent = "Geolocation is not supported by your browser";
+            }
+        });
+
+        // Stop sharing location
+        stopButton.addEventListener('click', () => {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            socket.emit('sharing_stopped');
+        });
+    </script>
+</body>
+</html> 
