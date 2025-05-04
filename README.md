@@ -36,12 +36,14 @@ pip install -r requirements.txt
 
 ## Configuration
 
-1. Open `app.py` and modify the `USERS` dictionary to set your desired username and password:
-```python
-USERS = {
-    'your_username': 'your_password'
-}
+1. Create a `.env` file in the project root with the following variables:
+```bash
+FLASK_SECRET_KEY=your-secret-key-here
+ADMIN_USERNAME=your-username
+ADMIN_PASSWORD=your-password
 ```
+
+Replace the values with your desired credentials. The `FLASK_SECRET_KEY` should be a random string for security.
 
 ## Running the Application
 
@@ -56,12 +58,15 @@ python app.py
 - Click "Start Sharing Location" to begin sharing your location
 - Others can view your location by accessing the same URL and logging in
 
-## Security Note
+## Security Notes
 
 This is a basic implementation with simple authentication. For production use, consider:
 - Using a proper database for user management
 - Implementing HTTPS
 - Adding more robust security measures
+- Never commit the `.env` file to version control
+- Use strong, unique passwords
+- Regularly rotate credentials
 
 ## License
 

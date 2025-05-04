@@ -85,12 +85,28 @@
         const stopButton = document.getElementById('stopSharing');
         const statusDiv = document.getElementById('status');
 
+        // Function to reset the map view
+        function resetMap() {
+            map.setView([0, 0], 2);
+            if (marker) {
+                map.removeLayer(marker);
+                marker = null;
+            }
+        }
+
         // Function to update UI based on sharing state
         function updateSharingUI(isSharing) {
             startButton.style.display = isSharing ? 'none' : 'inline-block';
             stopButton.style.display = isSharing ? 'inline-block' : 'none';
             statusDiv.textContent = isSharing ? "Location sharing is active" : "Location sharing is not active";
+            
+            if (!isSharing) {
+                resetMap();
+            }
         }
+
+        // Set initial state
+        updateSharingUI(false);
 
         // Handle location updates from server
         socket.on('location_updated', (data) => {

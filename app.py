@@ -2,19 +2,33 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from flask_socketio import SocketIO, emit
 import json
 import secrets
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = secrets.token_hex(16)  # Generate a random secret key
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
 socketio = SocketIO(app)
 
 # Store the latest location and sharing state
 latest_location = None
 is_sharing = False
 
+# Get credentials from environment variables
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'password123')
+
 # Simple user credentials (in production, use a proper database)
 USERS = {
-    'admin': 'password123'  # Change this to your desired password
+    ADMIN_USERNAME: ADMIN_PASSWORD
 }
+
+def reset_sharing_state():
+    global latest_location, is_sharing
+    latest_location = None
+    is_sharing = False
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -32,6 +46,8 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # Stop sharing when user logs out
+    reset_sharing_state()
     session.clear()
     return redirect(url_for('login'))
 
@@ -44,6 +60,8 @@ def index():
 @socketio.on('update_location')
 def handle_location_update(data):
     global latest_location
+    if not is_sharing:  # Only update location if sharing is active
+        return
     latest_location = data
     # Broadcast the location to all connected clients
     emit('location_updated', data, broadcast=True)
@@ -56,14 +74,13 @@ def handle_sharing_started():
 
 @socketio.on('sharing_stopped')
 def handle_sharing_stopped():
-    global is_sharing
-    is_sharing = False
+    reset_sharing_state()
     emit('sharing_state_changed', {'is_sharing': False}, broadcast=True)
 
 @socketio.on('connect')
 def handle_connect():
     # Send the latest location and sharing state to newly connected clients
-    if latest_location:
+    if latest_location and is_sharing:  # Only send location if sharing is active
         emit('location_updated', latest_location)
     emit('sharing_state_changed', {'is_sharing': is_sharing})
 
